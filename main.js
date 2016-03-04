@@ -4,10 +4,8 @@ import ReactDOM from 'react-dom';
 
 import {data, columns} from './data';
 
-var width = 600;
-var height = 400;
-
-var groupItems = function (items) {
+var groupItems = function (src) {
+  var items = src.values;
   var grouped = {};
   var empty = 0;
   items.forEach(
@@ -24,9 +22,13 @@ var groupItems = function (items) {
     }
   );
 
-  var sortedItems = Object.keys(grouped).sort(
-    (a, b) => grouped[b] - grouped[a]
-  );
+  var sorters = {
+    top: (a, b) => grouped[b] - grouped[a],
+    numerical: (a, b) => parseInt(a) - parseInt(b),
+    lexical: (a, b) => b < a,
+  };
+
+  var sortedItems = Object.keys(grouped).sort(sorters[src.sort]);
 
   var data = sortedItems.map(function(item, i) {
     return {
@@ -36,19 +38,18 @@ var groupItems = function (items) {
     };
   });
 
-  if (data.length > 5) {
+  if (data.length > src.limit) {
     // collapse tail into "other"
-    var tail = data.slice(5);
+    var tail = data.slice(src.limit);
     var collapsed = {
       id: 'tail',
       name: 'Прочее',
       count: tail.map(item => item.count).reduce((prev, cur) => prev + cur),
     };
 
-    data = data.slice(0, 5);
+    data = data.slice(0, src.limit);
     data.push(collapsed);
   }
-  console.log(data);
 
   data.push({
     count: empty,
@@ -60,19 +61,25 @@ var groupItems = function (items) {
   return data;
 };
 
-var drawData = function(items, target) {
-  var data = groupItems(items);
+var drawData = function(src, target) {
+  var data = groupItems(src);
+
+  var margin = {top: 10, bottom: 10, left: 260, right: 40};
+  var width = 860;
+  var barHeight = 20;
+  var height = barHeight * data.length + margin.top + margin.bottom;
+  var barMargin = 2;
 
   var x = d3.scale.linear()
-    .domain([0, data.length])
-    .range([0, width]);
-
-  var y = d3.scale.linear()
     .domain([
       0,
       d3.max(data, function(d) { return d.count })
     ])
-    .range([0, height - 10]); // leaving an offset for captions
+    .range([0, width - margin.left - margin.right]);
+
+  var y = d3.scale.linear()
+    .domain([0, data.length])
+    .range([0, height - margin.top - margin.bottom]);
 
   var container = d3.select(target).append('div')
     .attr('class', 'container');
@@ -82,22 +89,32 @@ var drawData = function(items, target) {
     .append('svg')
       .attr('width', width)
       .attr('height', height)
-    .append('g');
+    .append('g')
+      .attr('transform', 'translate(' + margin.left + ',' + margin.top + ')');
 
   var bar = svg.selectAll('.bar')
     .data(data)
     .enter().append('g')
       .attr('class', 'bar')
-      .attr('transform', function(d, i) { return 'translate(' + x(i) + ',' + (height - y(d.count)) + ')' })
+      .attr('transform', function(d, i) { return 'translate(0,' + (y(i) + barMargin) + ')' })
 
   var rect = bar.append('rect')
-      .attr('width', function(d, i) { return x(1) - x(0) - 3 })
-      .attr('height', function(d) { return y(d.count) });
+      .attr('width', function(d) { return x(d.count) })
+      .attr('height', barHeight - barMargin * 2);
 
   bar.append('text')
-    .attr('dy', '-0.1em')
-    .attr('x', function() { return (x(1) - x(0) - 3) / 2 })
+    .attr('dy', barHeight / 2 + barMargin)
+    .attr('x', function(d) { return x(d.count) + 2 })
+    .attr('class', 'number')
     .text(function(d) { return d.count });
+
+  bar.append('text')
+    .attr('dy', barHeight / 2 + barMargin)
+    .attr('x', -3)
+    .attr('class', 'label')
+    .text(function(d) {
+      return src.shortcuts[d.name] || d.name
+    });
 
   rect.on('mouseover', function(d) {
     container.selectAll('.legend-item')
@@ -109,33 +126,32 @@ var drawData = function(items, target) {
     container.selectAll('.legend-item')
       .classed('legend-item--highlight', false);
   });
-
-  var legend = container.append('div');
-
-  legend.selectAll('.legend-item')
-    .data(data)
-    .enter().append('div')
-      .classed('legend-item', true)
-      .attr('data-item', function(d) { return d.id })
-      .text(function(d) { return d.name + ': ' + d.count });
-
 };
 
 const Block = React.createClass({
   render () {
     return (
       <section>
-        <h3>{this.props.title}</h3>
+        <h3>{this.props.data.title}</h3>
         <div className='d3-placeholder'></div>
       </section>
     );
   },
 
   renderD3 () {
-    drawData(
-      this.props.data,
-      ReactDOM.findDOMNode(this)
-    );
+    if (this.props.data.show == 'histogram') {
+      drawData(
+        this.props.data,
+        ReactDOM.findDOMNode(this)
+      );
+    }
+    else if (this.props.data.show == 'text') {
+      var x = 5;
+      // do nothing
+    }
+    else {
+      console.log('WARNING: unknown show type');
+    }
   },
 
   componentDidMount () { this.renderD3() },
@@ -166,7 +182,7 @@ const Main = React.createClass({
           {
             columns.map(
               (column) =>
-              <Block title={data[column].title} data={data[column].values} />
+              <Block data={data[column]} />
             )
           }
         </Group>

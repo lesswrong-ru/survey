@@ -7,6 +7,9 @@
     h1, h2, h3 {
       text-align: center;
     }
+    h2 {
+      text-decoration: underline;
+    }
     body {
       background-color: #ddd;
     }
@@ -23,10 +26,6 @@
       flex-direction: row;
     }
 
-    .legend-item--highlight {
-      font-weight: bold;
-    }
-
     .bar text.number {
       font-size: 11px;
     }
@@ -40,6 +39,32 @@
     }
     .bar rect:hover {
       fill: #6666c2;
+    }
+
+    .bar__tail {
+      cursor: pointer;
+    }
+    .bar__tail rect {
+      fill: #777;
+    }
+    .bar__tail rect:hover {
+      fill: #6666c2;
+    }
+    .bar__empty rect {
+      fill: #777;
+    }
+    .bar__empty rect:hover {
+      fill: #999;
+    }
+
+    .text-data {
+      margin: 0 auto;
+      width: 600px;
+    }
+
+    .text-data--item {
+      font-size: 11px;
+      margin-bottom: 8px;
     }
   </style>
 </head>

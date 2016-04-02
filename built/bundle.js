@@ -448,7 +448,7 @@
 	          _react2.default.createElement(
 	            'strong',
 	            null,
-	            '312'
+	            '313'
 	          ),
 	          ' раз. В итоговые данные вошли 305 анкет, остальные 8 я отсеял по следующим причинам:',
 	          _react2.default.createElement(

@@ -1,24 +1,65 @@
 <!doctype html>
 <head>
   <meta charset='utf-8'>
-  <link rel='stylesheet' href='node_modules/normalize.css/normalize.css'>
+  <link rel='stylesheet' href='built/normalize.css'>
 
   <style>
-    h1, h2, h3 {
+    h1 {
       text-align: center;
     }
     h2 {
+      margin-left: 360px;
       text-decoration: underline;
+      font-weight: normal;
+      font-size: 32px;
+    }
+    h3 {
+      margin-left: 360px;
+      margin-bottom: 0px;
+      font-size: 20px;
+      font-weight: normal;
+    }
+    .multiple-note {
+      margin-left: 360px;
+      font-size: 11px;
     }
     body {
       background-color: #ddd;
     }
     main {
       background-color: white;
-      max-width: 960px;
+      max-width: 1060px;
       margin: 0 auto;
       padding: 0;
+      padding-bottom: 20px;
       min-height: 100vh;
+    }
+
+    #intro, #outro {
+      font-size: 13px;
+      margin-left: 305px;
+      max-width: 500px;
+      border: 1px solid #999;
+      padding-left: 15px;
+      padding-right: 15px;
+      padding-top: 10px;
+      padding-bottom: 10px;
+      margin-bottom: 20px;
+    }
+
+    .menu {
+      font-size: 13px;
+      margin-left: 320px;
+    }
+    .menu ul {
+      list-style-type: none;
+    }
+    .menu--outer {
+      padding: 0; margin: 0;
+    }
+    .menu--inner: {
+      padding: 0; margin: 0;
+      margin-left: 40px;
     }
 
     .container {
@@ -28,6 +69,11 @@
 
     .bar text.number {
       font-size: 11px;
+    }
+    .bar text.percent-number {
+      font-size: 11px;
+      text-anchor: end;
+      fill: white;
     }
     .bar text.label {
       font-size: 11px;
@@ -58,8 +104,9 @@
     }
 
     .text-data {
-      margin: 0 auto;
-      width: 600px;
+      margin-left: 360px;
+      margin-right: 200px;
+      padding-bottom: 30px;
     }
 
     .text-data--item {
@@ -70,8 +117,17 @@
 </head>
 <body>
   <main id='main'>
+    <h1>Итоги переписи русскоговорящего LessWrong 2015</h1>
+    <div style='margin: 100px auto; max-width: 600px;'>
+      <p>
+      HTML-версия этой страницы требует включенного JavaScript'а, извините.<br>
+      </p><p>
+      Включите JavaScript, либо скачайте <a href='survey-results.pdf'>PDF</a>.
+      </p>
+    </div>
   </main>
 
-  <script src='bundle.js'></script>
+  <script src='built/bundle.js'></script>
 
 </body>
+

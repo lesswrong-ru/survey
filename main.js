@@ -2,7 +2,7 @@ import d3 from 'd3';
 import React from 'react';
 import ReactDOM from 'react-dom';
 
-import {data, structure} from './data';
+import {data, structure, total} from './data';
 
 var groupItems = function (src, context) {
   var items = src.values;
@@ -66,16 +66,15 @@ var groupItems = function (src, context) {
 var drawData = function(src, target, context, initial=false) {
   var data = groupItems(src, context);
 
-  var margin = {top: 10, bottom: 10, left: 260, right: 40};
+  var margin = {top: 10, bottom: 10, left: 360, right: 20};
   var width = 860;
   var barHeight = 20;
   var height = barHeight * data.length + margin.top + margin.bottom;
   var barMargin = 2;
-  var maxCount = 305;
 
   var x = d3.scale.linear()
     .domain([
-      0, maxCount
+      0, total
       //d3.max(data, function(d) { return d.count })
     ])
     .range([0, width - margin.left - margin.right]);
@@ -104,7 +103,6 @@ var drawData = function(src, target, context, initial=false) {
         .attr('height', height)
       .select('g');
   }
-  console.log(svg);
 
   var bar = svg.selectAll('.bar')
     .data(data, d => d.name);
@@ -119,9 +117,10 @@ var drawData = function(src, target, context, initial=false) {
       .attr('height', barHeight - barMargin * 2);
 
   barEnter.append('text')
-      .attr('dy', barHeight / 2 + barMargin)
-      .attr('x', function(d) { return x(d.count) + 2 })
       .attr('class', 'number');
+
+  barEnter.append('text')
+      .attr('class', 'percent-number');
 
   barEnter.append('text')
       .attr('dy', barHeight / 2 + barMargin)
@@ -131,9 +130,26 @@ var drawData = function(src, target, context, initial=false) {
         return src.shortcuts[d.name] || d.name
       });
 
-  bar.transition().attr('transform', function(d, i) { return 'translate(0,' + (y(i) + barMargin) + ')' })
+  bar.transition()
+      .attr('transform', function(d, i) { return 'translate(0,' + (y(i) + barMargin) + ')' })
+    .select('rect')
+      .attr('width', function(d) { return x(d.count) });
   bar.select('.number')
+      .attr('dy', barHeight / 2 + barMargin)
+      .attr('x', function(d) { return x(d.count) + 3 })
       .text(function(d) { return d.count });
+  bar.select('.percent-number')
+      .attr('dy', barHeight / 2 + barMargin)
+      .attr('x', function(d) { return x(d.count) - 3 })
+      .text(function(d) {
+        if (x(d.count) <= 20) {
+          return ''; // the bar is too short, the number won't fit
+        }
+        if (src.multiple && d.id == 'tail') {
+          return ''; // percentage is meaningless for tails
+        }
+        return Math.round(100 * (d.count / total)) + '%'
+      });
 
   barEnter.filter(d => d.special)
     .attr('class', function(d) { return d3.select(this).attr('class') + ' bar__' + d.special });
@@ -145,8 +161,13 @@ var drawData = function(src, target, context, initial=false) {
 const Block = React.createClass({
   render () {
     return (
-      <section>
+      <section id={'question-' + this.props.name}>
         <h3>{this.props.data.title}</h3>
+        {
+          this.props.data.multiple
+          ? <small className='multiple-note'>(Этот вопрос допускал несколько ответов, сумма может превышать 100%.)</small>
+          : null
+        }
         {this.renderText()}
       </section>
     );
@@ -161,7 +182,7 @@ const Block = React.createClass({
       <div className='text-data'>
       {
         this.props.data.values.map(
-          value => (<div className='text-data--item'>{value}</div>)
+          (value, i) => (<div className='text-data--item' key={i}>{value}</div>)
         )
       }
       </div>
@@ -175,8 +196,12 @@ const Block = React.createClass({
   },
 
   expandTail () {
+    var expandCount = 10;
+    if (this.props.name == 'hobby') {
+      expandCount = 30;
+    }
     this.setState({
-      limit: (this.state.limit || this.props.data.limit) + 10,
+      limit: (this.state.limit || this.props.data.limit) + expandCount,
     });
   },
 
@@ -208,7 +233,8 @@ const Block = React.createClass({
 const Group = function (props) {
   return (
     <div>
-      <h2>{props.title}</h2>
+      <hr/>
+      <h2 id={'group-' + props.id}>{props.title}</h2>
       {
         React.Children.map(
           props.children,
@@ -219,26 +245,142 @@ const Group = function (props) {
   );
 };
 
+const Menu = React.createClass({
+  render () {
+    return (
+      <nav className='menu'>
+        <ul className='menu--outer'>
+        {
+          structure.map(
+            (group, i) => (
+              <li>
+                <a href={'#group-' + i} key={i}>{group.title}</a>
+                <ul className='menu--inner'>
+                  {
+                    group.columns.map(
+                      column => (
+                        <li>
+                          <a href={'#question-' + column} key={column}>{data[column].title}</a>
+                        </li>
+                      )
+                    )
+                  }
+                </ul>
+              </li>
+            )
+          )
+        }
+        </ul>
+      </nav>
+    );
+  },
+});
 
 const Main = React.createClass({
   render () {
     return (
       <div>
         <h1>Итоги переписи русскоговорящего LessWrong 2015</h1>
+        <div id='intro'>
+        <p>
+        Перепись русскоговорящего LessWrong проходила в конце декабря 2015.
+        </p>
+        <p>
+        То, как выглядел оригинальный опрос, можно посмотреть <a href='original-survey.pdf'>тут (pdf)</a>.
+        </p>
+        <p>
+        Некоторые подробности об том, как обрабатывались результаты, можно узнать <a href='#outro'>в конце этой страницы</a>.
+        </p>
+        </div>
+        <Menu />
         {
           structure.map(
-            group => (
-              <Group title={group.title}>
+            (group, i) => (
+              <Group title={group.title} id={i} key={i}>
                 {
                   group.columns.map(
                     (column) =>
-                    <Block data={data[column]} key={column} />
+                    <Block name={column} data={data[column]} key={column} />
                   )
                 }
               </Group>
             )
           )
         }
+        <div id='outro'>
+          <h4>Подробности об обработке данных и технологиях</h4>
+          <p>
+          Перепись продолжалась с 22 декабря 2015 по 5 января 2016.<br/>
+          Ссылка на опрос была опубликована:
+          <ul>
+          <li>В <a href='https://lesswrong-ru.hackpad.com/--UaFxYxI8EMJ'>slack-чате</a></li>
+          <li>На <a href='http://lesswrong.ru/forum/index.php/topic,775.msg25554.html'>форуме</a></li>
+          <li>В <a href='https://www.facebook.com/groups/lesswrong.moscow/permalink/1666164413638027/'>facebook-группе московского lesswrong'а</a></li>
+          </ul>
+          </p>
+          <div>***</div>
+          <p>
+          Форму заполнили <strong>312</strong> раз. В итоговые данные вошли 305 анкет, остальные 8 я отсеял по следующим причинам:
+          <ul>
+          <li>анкету Пион, которая тестировала форму до её финальной версии, и заполнила потом ещё раз</li>
+          <li>анкету с приватным комментарием "заполнил дважды"</li>
+          <li>анкету с 6 заполненными полями, совпадающую со следующей (20 минут спустя) по всем полям</li>
+          <li>анкету с заполненным только лишь политическим компасом (два числа и идентичность "трансгцма") - соответствия не нашёл</li>
+          <li>две из трёх недозаполненные копии анкеты с профессией "соммелье"</li>
+          <li>и две анкеты, из Казани и Минска, которые я опознал, сравнивая соседние по времени и полям анкеты с большими последовательностями незаполенных полей</li>
+          </ul>
+          </p>
+          <div>***</div>
+          <p>
+          В первой версии анкеты, которую я распространял, не было чекбокса <i>"Не публиковать мою полную анкету"</i>, но была следующая пометка:<br/><i>Все ответы по умолчанию будут опубликованы (полные анкеты, не только статистика по каждому пункту), кроме последней секции, "приватная информация".</i>
+          </p>
+          <p>
+          Я добавил opt-out чекбокс на следующий день после того, как опубликовал анкету. Его отметили примерно 35% участников, и я решил на всякий случай не публиковать полные данные вообще.
+          </p>
+          <p>
+          (Зачем нужна опция про приватность? Учитывая количество вопросов, некоторых людей можно было бы однозначно опознать по их демографическим данным.)
+          </p>
+          <p>
+          Если бы я делал этот опрос заново, я бы сделал opt-in чекбокс, и сейчас считаю, что отнёсся к этому вопросу недостаточно аккуратно. Если вы хотите узнать какие-то интересные корреляции между двумя вопросами в анкете, напишите мне (<a href='http://vk.com/berekuk'>vk</a>, <a href='mailto:me@berekuk.ru'>email</a>), посчитаем вместе.
+          </p>
+          <p>
+          Доступ к полным ответам на анкету был:
+          <ul>
+          <li>у меня (Вячеслав Матюхин, организатор опроса, организатор московских lesswrong-встреч, основатель Кочерги)</li>
+          <li>у Пион Гайбарян (организатор московских lesswrong-встреч, основатель Кочерги, помогала нормализовывать ответы на текстовые вопросы)</li>
+          <li>у компании Google</li>
+          </ul>
+          </p>
+          <div>***</div>
+          <p>
+          Кстати, если вы по ошибке добавили в поле "текстовый отзыв" то, что хотели добавить в поле "текстовый отзыв" в последней, приватной секции, свяжитесь со мной (<a href='http://vk.com/berekuk'>vk</a>, <a href='mailto:me@berekuk.ru'>email</a>)
+          </p>
+          <div>***</div>
+          <p>
+          Вопросы про психическое расстройство вызвали несколько негативных отзывов (в почте, в личной переписке).
+          </p>
+          <p>
+          Я не знаю, что я мог бы сделать иначе, потому что пометка <i>"Все вопросы необязательны. Если формулировка вопроса вызывает у вас замешательство, либо нежелание раскрывать информацию по этому пункту, то пропускайте вопрос."</i> в начале анкеты, и <i>"в очередной раз напоминаем, что все вопросы необязательны"</i> в секции про психические расстройства были.
+          </p>
+          <div>***</div>
+          <p>
+          Ответы на вопросы "Образование", "Текущий род занятий" и "Хобби" мы нормализовывали вручную.
+          </p><p>
+          Ответы на эти вопросы и на вопросы "Если вы ходите [или не ходите] на встречи, то почему?" допускали несколько вариантов, так что суммарное количество ответов превышает число участников.
+          </p><p>
+          Ответы на вопрос про IQ округлён до десятков, ответ на вопрос про доход представлен как есть.
+          </p>
+          <div>***</div>
+          <p>
+          Страница результатов написана на <a href='https://d3js.org/'>D3.js</a> и <a href='https://facebook.github.io/react/'>React</a>. Без javascript'а эта страница не отобразится, извините.
+          </p>
+          <p>
+          Исходный код <a href='https://github.com/lesswrong-ru/survey'>доступен на Github'е</a>.
+          </p>
+          <p>
+          Данные, из которых верстается страница итогов переписи, лежат в <a href='data.js'>отдельном файле</a>. Ответы отсортированы по каждому вопросу отдельно для сохранения приватности участников.
+          </p>
+        </div>
       </div>
     );
   }

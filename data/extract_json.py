@@ -5,17 +5,44 @@ import numpy as np
 import math
 import re
 
+def normalize_one(value):
+    value = re.sub(':\)$', '', value)
+    value = re.sub('\.$', '', value)
+    value = value.strip()
+    if value == '':
+        return None
+    value = value[0].upper() + value[1:]
+    return value
+
 def normalize(column, value):
     if not value:
         return [value]
-    if column in ('speciality', 'compass_freeform'):
-        return [value.lower()]
-    if column in ('meetups_why', 'meetups_why_not'):
-        return re.split(r', (?=[А-Я])', value)
+
+
+    if column in ('speciality',):
+        specialty_fixes = {
+            'ит': 'IT',
+            'экономист': 'Экономика',
+            'математик': 'Математика',
+            'программист': 'Программирование',
+            'информационные технологии': 'IT',
+        }
+        value = specialty_fixes.get(value.lower(), value)
+
     if column == 'iq':
         value = int((int(value) - 1) / 10) * 10
         return ['{}-{}'.format(value + 1, value + 10)]
-    return [value]
+
+    if column in ('meetups_why', 'meetups_why_not'):
+        values = re.split(r', (?=[А-Я])', value)
+    elif column in ('hobby', 'job'):
+        value = re.sub('\(.*?\)', '', value) # get rid of (...), they are messing up with splitting-by-comma
+        values = re.split(r',\s*', value)
+    else:
+        values = [value]
+
+    return [normalize_one(v) for v in values]
+
 
 def main():
     df = pd.read_csv('data.txt', sep='\t')
@@ -51,8 +78,8 @@ def main():
             'title': 'Политическая позиция',
             'columns': [
                 'compass_economics',
-                'compass_freeform',
                 'compass_social',
+                'compass_freeform',
             ],
         },
         {
@@ -145,7 +172,7 @@ def main():
             'show': 'histogram',
         }
 
-    data['education']['shortcuts']['оконченное высшее (бакалавр, специалист, магистр)'] = 'Неоконченное высшее'
+    #data['education']['shortcuts']['оконченное высшее (бакалавр, специалист, магистр)'] = 'Оконченное высшее'
     data['referer']['shortcuts']['Через книгу "Гарри Поттер и методы рационального мышления"'] = 'Через ГПиМРМ'
 
     data['age']['sort'] = 'numerical'
@@ -154,6 +181,7 @@ def main():
     data['identity']['sort'] = 'numerical'
     data['happiness']['sort'] = 'numerical'
     data['iq']['sort'] = 'numerical'
+    data['income']['sort'] = 'numerical'
     data['sequences_russian']['sort'] = 'numerical'
     data['sequences_english']['sort'] = 'numerical'
     data['sequences_book']['sort'] = 'numerical'
@@ -162,7 +190,7 @@ def main():
     for field in ('age', 'english_cefr', 'iq', 'compass_social', 'compass_economics', 'happiness', 'online_lwru', 'online_slack', 'online_vk', 'online_lwcom', 'online_diaspora', 'online_reddit'):
         data[field]['limit'] = 1000
 
-    for field in ('meetups_why', 'meetups_why_not'):
+    for field in ('meetups_why', 'meetups_why_not', 'hobby', 'job'):
         data[field]['multiple'] = True
 
     for field in ('online_other', 'comments'):
@@ -184,6 +212,7 @@ def main():
         print('export const data = ' + json.dumps(data) + ';', file=js)
         print('export const columns = ' + json.dumps(columns) + ';', file=js)
         print('export const structure = ' + json.dumps(structure) + ';', file=js)
+        print('export const total = 305;', file=js)
 
 if __name__ == '__main__':
     main()

@@ -5,9 +5,10 @@ import numpy as np
 import math
 import re
 
-def normalize_one(value):
+def normalize_one(column, value):
     value = re.sub(':\)$', '', value)
-    value = re.sub('\.$', '', value)
+    if column != 'income':
+        value = re.sub('\.$', '', value)
     value = value.strip()
     if value == '':
         return None
@@ -18,7 +19,6 @@ def normalize(column, value):
     if not value:
         return [value]
 
-
     if column in ('speciality',):
         specialty_fixes = {
             'ит': 'IT',
@@ -28,6 +28,25 @@ def normalize(column, value):
             'информационные технологии': 'IT',
         }
         value = specialty_fixes.get(value.lower(), value)
+
+    if column == 'income':
+        value = re.sub(',', '.', value)
+        value = str(int(float(value)))
+        if 0 < int(float(value)) < 300:
+            value = str(1000 * int(float(value)))
+
+        def group_n(n):
+            group_id = int(int(value) / (1000 * n))
+            return '{}-{} тыс. р.'.format(n * group_id, (n-1) + n * group_id)
+
+        if int(value) < 5000:
+            value = 'до 5 тыс. р.'
+        elif int(value) < 10000:
+            value = '5-9 тыс. р.'
+        elif int(value) < 150000:
+            value = group_n(10)
+        else:
+            value = group_n(50)
 
     if column == 'iq':
         value = int((int(value) - 1) / 10) * 10
@@ -41,7 +60,7 @@ def normalize(column, value):
     else:
         values = [value]
 
-    return [normalize_one(v) for v in values]
+    return [normalize_one(column, v) for v in values]
 
 
 def main():
@@ -180,8 +199,8 @@ def main():
     data['compass_social']['sort'] = 'numerical'
     data['identity']['sort'] = 'numerical'
     data['happiness']['sort'] = 'numerical'
-    data['iq']['sort'] = 'numerical'
-    data['income']['sort'] = 'numerical'
+    data['iq']['sort'] = 'last_int'
+    data['income']['sort'] = 'last_int'
     data['sequences_russian']['sort'] = 'numerical'
     data['sequences_english']['sort'] = 'numerical'
     data['sequences_book']['sort'] = 'numerical'

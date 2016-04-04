@@ -23,13 +23,17 @@ var groupItems = function (src, context) {
     }
   );
 
+  var extractInt = str => parseInt(str.match(/\d+/g).slice(-1)[0]);
+
   var sorters = {
     top: (a, b) => grouped[b] - grouped[a],
     numerical: (a, b) => parseInt(a) - parseInt(b),
     lexical: (a, b) => b < a,
+    last_int: (a, b) => extractInt(a) - extractInt(b),
   };
 
   var sortedItems = Object.keys(grouped).sort(sorters[src.sort]);
+  if (src.sort == 'income') console.log(sortedItems);
 
   var data = sortedItems.map(function(item, i) {
     return {
@@ -253,13 +257,13 @@ const Menu = React.createClass({
         {
           structure.map(
             (group, i) => (
-              <li>
-                <a href={'#group-' + i} key={i}>{group.title}</a>
+              <li key={i}>
+                <a href={'#group-' + i}>{group.title}</a>
                 <ul className='menu--inner'>
                   {
                     group.columns.map(
                       column => (
-                        <li>
+                        <li key={column}>
                           <a href={'#question-' + column} key={column}>{data[column].title}</a>
                         </li>
                       )
@@ -368,7 +372,7 @@ const Main = React.createClass({
           </p><p>
           Ответы на эти вопросы и на вопросы "Если вы ходите [или не ходите] на встречи, то почему?" допускали несколько вариантов, так что суммарное количество ответов превышает число участников.
           </p><p>
-          Ответы на вопрос про IQ округлён до десятков, ответ на вопрос про доход представлен как есть.
+          Ответы на вопрос про IQ округлён до десятков, на вопрос про доход - до десятков тысяч рублей.
           </p>
           <div>***</div>
           <p>

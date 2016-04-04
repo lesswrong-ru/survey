@@ -19,15 +19,17 @@ def normalize(column, value):
     if not value:
         return [value]
 
-    if column in ('speciality',):
-        specialty_fixes = {
+    column_specific_fixes = {
+        'speciality': {
             'ит': 'IT',
             'экономист': 'Экономика',
             'математик': 'Математика',
             'программист': 'Программирование',
             'информационные технологии': 'IT',
-        }
-        value = specialty_fixes.get(value.lower(), value)
+        },
+    }
+    if column in column_specific_fixes:
+        value = column_specific_fixes[column].get(value.lower(), value)
 
     if column == 'income':
         value = re.sub(',', '.', value)
@@ -61,6 +63,20 @@ def normalize(column, value):
         values = [value]
 
     return [normalize_one(column, v) for v in values]
+
+
+def extract_other_values(data):
+    value2count = {}
+    for value in data['values']:
+        value2count[value] = value2count.get(value, 0) + 1
+
+    single_values = set([
+        value for value in value2count
+        if value2count[value] == 1
+    ])
+
+    data['other_values'] = sorted(list(single_values))
+    data['values'] = [value for value in data['values'] if value not in single_values]
 
 
 def main():
@@ -188,11 +204,12 @@ def main():
             'sort': 'top',
             'limit': 5,
             'multiple': False,
+            'text_tail': False,
             'show': 'histogram',
         }
 
-    #data['education']['shortcuts']['оконченное высшее (бакалавр, специалист, магистр)'] = 'Оконченное высшее'
     data['referer']['shortcuts']['Через книгу "Гарри Поттер и методы рационального мышления"'] = 'Через ГПиМРМ'
+    data['meetups_why']['shortcuts']['Попрактиковаться в чтении докладов и организационной деятельности'] = 'Попрактиковаться в чтении докладов и орг.деятельности'
 
     data['age']['sort'] = 'numerical'
     data['compass_economics']['sort'] = 'numerical'
@@ -206,7 +223,7 @@ def main():
     data['sequences_book']['sort'] = 'numerical'
     data['english_cefr']['sort'] = 'lexical'
 
-    for field in ('age', 'english_cefr', 'iq', 'compass_social', 'compass_economics', 'happiness', 'online_lwru', 'online_slack', 'online_vk', 'online_lwcom', 'online_diaspora', 'online_reddit'):
+    for field in ('age', 'education', 'english_cefr', 'iq', 'compass_social', 'compass_economics', 'happiness', 'online_lwru', 'online_slack', 'online_vk', 'online_lwcom', 'online_diaspora', 'online_reddit'):
         data[field]['limit'] = 1000
 
     for field in ('meetups_why', 'meetups_why_not', 'hobby', 'job'):
@@ -214,6 +231,9 @@ def main():
 
     for field in ('online_other', 'comments'):
         data[field]['show'] = 'text'
+
+    for field in ('meetups_why', 'meetups_why_not'):
+        data[field]['text_tail'] = True
 
 
     for i in range(1, df.index.size):
@@ -227,11 +247,14 @@ def main():
     for column in data.keys():
         data[column]['values'] = sorted(data[column]['values'], key=lambda x: x or '')
 
+    for column in ('gender', 'religion', 'family', 'referer', 'meetups_city', 'meetups_why', 'meetups_why_not'):
+        extract_other_values(data[column])
+
     with open('../data.js', mode='w') as js:
         print('export const data = ' + json.dumps(data) + ';', file=js)
         print('export const columns = ' + json.dumps(columns) + ';', file=js)
         print('export const structure = ' + json.dumps(structure) + ';', file=js)
-        print('export const total = 305;', file=js)
+        print('export const total = 305;', file=js) # FIXME - count the items in data
 
 if __name__ == '__main__':
     main()

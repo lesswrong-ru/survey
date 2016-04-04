@@ -70,16 +70,15 @@ var groupItems = function (src, context) {
 var drawData = function(src, target, context, initial=false) {
   var data = groupItems(src, context);
 
-  var margin = {top: 10, bottom: 10, left: 360, right: 20};
+  var margin = {top: 10, bottom: 0, left: 360, right: 20};
   var width = 860;
-  var barHeight = 20;
-  var height = barHeight * data.length + margin.top + margin.bottom;
-  var barMargin = 2;
+  var itemHeight = 20;
+  var height = itemHeight * data.length + margin.top + margin.bottom;
+  var itemMargin = 2;
 
   var x = d3.scale.linear()
     .domain([
       0, total
-      //d3.max(data, function(d) { return d.count })
     ])
     .range([0, width - margin.left - margin.right]);
 
@@ -89,13 +88,7 @@ var drawData = function(src, target, context, initial=false) {
 
   var svg;
   if (initial) {
-    var container = d3.select(target).append('div')
-      .attr('class', 'container');
-
-    svg = container.append('div')
-        .attr('class', 'histogram')
-        .attr('xmlns:xlink', "http://www.w3.org/1999/xlink")
-      .append('svg')
+    svg = d3.select(target).append('svg')
         .attr('class', 'svg-main')
         .attr('width', width)
         .attr('height', height)
@@ -108,42 +101,42 @@ var drawData = function(src, target, context, initial=false) {
       .select('g');
   }
 
-  var bar = svg.selectAll('.bar')
+  var item = svg.selectAll('.item')
     .data(data, d => d.name);
 
-  bar.exit().remove(); // not really necessary
+  item.exit().remove(); // not really necessary
 
-  var barEnter = bar.enter().append('g')
-      .attr('class', 'bar');
+  var itemEnter = item.enter().append('g')
+      .attr('class', 'item');
 
-  var rect = barEnter.append('rect')
+  var rect = itemEnter.append('rect')
       .attr('width', function(d) { return x(d.count) })
-      .attr('height', barHeight - barMargin * 2);
+      .attr('height', itemHeight - itemMargin * 2);
 
-  barEnter.append('text')
+  itemEnter.append('text')
       .attr('class', 'number');
 
-  barEnter.append('text')
+  itemEnter.append('text')
       .attr('class', 'percent-number');
 
-  barEnter.append('text')
-      .attr('dy', barHeight / 2 + barMargin)
+  itemEnter.append('text')
+      .attr('dy', itemHeight / 2 + itemMargin)
       .attr('x', -3)
       .attr('class', 'label')
       .text(function(d) {
         return src.shortcuts[d.name] || d.name
       });
 
-  bar.transition()
-      .attr('transform', function(d, i) { return 'translate(0,' + (y(i) + barMargin) + ')' })
+  item.transition()
+      .attr('transform', function(d, i) { return 'translate(0,' + (y(i) + itemMargin) + ')' })
     .select('rect')
       .attr('width', function(d) { return x(d.count) });
-  bar.select('.number')
-      .attr('dy', barHeight / 2 + barMargin)
+  item.select('.number')
+      .attr('dy', itemHeight / 2 + itemMargin)
       .attr('x', function(d) { return x(d.count) + 3 })
       .text(function(d) { return d.count });
-  bar.select('.percent-number')
-      .attr('dy', barHeight / 2 + barMargin)
+  item.select('.percent-number')
+      .attr('dy', itemHeight / 2 + itemMargin)
       .attr('x', function(d) { return x(d.count) - 3 })
       .text(function(d) {
         if (x(d.count) <= 20) {
@@ -155,29 +148,55 @@ var drawData = function(src, target, context, initial=false) {
         return Math.round(100 * (d.count / total)) + '%'
       });
 
-  barEnter.filter(d => d.special)
-    .attr('class', function(d) { return d3.select(this).attr('class') + ' bar__' + d.special });
+  itemEnter.filter(d => d.special)
+    .attr('class', function(d) { return d3.select(this).attr('class') + ' item__' + d.special });
 
-  barEnter.filter(d => d.id == 'tail')
+  itemEnter.filter(d => d.id == 'tail')
     .on('click', context.expandTail);
 };
 
 const Block = React.createClass({
   render () {
     return (
-      <section id={'question-' + this.props.name}>
+      <section id={'question-' + this.props.name} className='block'>
         <h3>{this.props.data.title}</h3>
         {
           this.props.data.multiple
           ? <small className='multiple-note'>(Этот вопрос допускал несколько ответов, сумма может превышать 100%.)</small>
           : null
         }
+        <div className='d3'></div>
+        {this.renderOther()}
         {this.renderText()}
       </section>
     );
   },
 
-  renderText() {
+  renderOther () {
+    if (!this.props.data.other_values) {
+      return;
+    }
+    if (this.state.showOther) {
+      return (
+        <div className='text-data'>
+        {
+          this.props.data.other_values.map(
+            (value, i) => (<div className='text-data--item' key={i}>{value}</div>)
+          )
+        }
+        </div>
+      );
+    }
+    else {
+      return (
+        <div className='text-data'>
+          <a className='show-other-link' href='#' onClick={this.showOther}>Показать другие ответы ({this.props.data.other_values.length})</a>
+        </div>
+      );
+    }
+  },
+
+  renderText () {
     if (this.props.data.show != 'text') {
       return;
     }
@@ -193,9 +212,17 @@ const Block = React.createClass({
     );
   },
 
+  showOther (e) {
+    e.preventDefault();
+    this.setState({
+      showOther: true,
+    });
+  },
+
   getInitialState () {
     return {
       limit: null,
+      showOther: false,
     };
   },
 
@@ -213,7 +240,7 @@ const Block = React.createClass({
     if (this.props.data.show == 'histogram') {
       drawData(
         this.props.data,
-        ReactDOM.findDOMNode(this),
+        ReactDOM.findDOMNode(this).getElementsByClassName('d3')[0],
         {
           expandTail: this.expandTail,
           limit: this.state.limit,

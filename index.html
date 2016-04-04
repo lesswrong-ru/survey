@@ -62,60 +62,68 @@
       margin-left: 40px;
     }
 
-    .container {
-      display: flex;
-      flex-direction: row;
+    .svg-main {
+      display: block;
     }
 
-    .bar text.number {
+    .item text.number {
       font-size: 11px;
     }
-    .bar text.percent-number {
+    .item text.percent-number {
       font-size: 11px;
       text-anchor: end;
       fill: white;
     }
-    .bar text.label {
+    .item text.label {
       font-size: 11px;
       text-anchor: end;
     }
-    .bar rect {
+    .item rect {
       fill: #39398e;
       shape-rendering: crispEdges;
     }
-    .bar rect:hover {
+    .item rect:hover {
       fill: #6666c2;
     }
 
-    .bar__tail {
+    .item__tail {
       cursor: pointer;
     }
-    .bar__tail .label {
+    .item__tail .label {
       fill: #6666c2;
       text-decoration: underline;
     }
-    .bar__tail rect {
+    .item__tail rect {
       fill: #777;
     }
-    .bar__tail rect:hover {
+    .item__tail rect:hover {
       fill: #6666c2;
     }
-    .bar__empty rect {
+    .item__empty rect {
       fill: #777;
     }
-    .bar__empty rect:hover {
+    .item__empty rect:hover {
       fill: #999;
     }
 
+    .show-other-link {
+      font-size: 11px;
+      color: #6666c2;
+      display: block;
+    }
     .text-data {
+      margin-top: 5px;
       margin-left: 360px;
       margin-right: 200px;
-      padding-bottom: 30px;
     }
 
     .text-data--item {
       font-size: 11px;
       margin-bottom: 8px;
+    }
+
+    .block {
+      margin-bottom: 30px;
     }
   </style>
 </head>

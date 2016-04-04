@@ -269,10 +269,6 @@ def main():
     data['sequences_book']['sort'] = 'numerical'
     data['english_cefr']['sort'] = 'lexical'
 
-    for column in data.keys():
-        if column.startswith('slang_'):
-            data[column]['sort'] = 'slang'
-
     for field in (
             'age', 'education', 'english_cefr', 'iq',
             'compass_social', 'compass_economics',
@@ -312,6 +308,23 @@ def main():
     data['iq']['note'] = 'Ваша честная оценка по итогам тестов, если вы проходили их в прошлом.'
     data['english_cefr']['note'] = 'См. https://en.wikipedia.org/wiki/Common_European_Framework_of_Reference_for_Languages'
     data['identity']['note'] = '(то есть как человек, разделяющий рациональное мировоззрение, не обязательно как человек, который сам по себе идеально рационален)'
+
+    for column in data.keys():
+        if column.startswith('online_') and column != 'online_other':
+            data[column]['custom_sort'] = [
+                'Не знаю, что это',
+                'Знаю, что это, но не читаю',
+                'Редко читаю',
+                'Часто читаю',
+                'Часто читаю и иногда пишу',
+                'Часто читаю и пишу',
+            ]
+        if column.startswith('slang_'):
+            data[column]['custom_sort'] = [
+                'Знаю, что это',
+                'Слышал(а) эти слова, но не могу объяснить другому их значение',
+                'Мне это незнакомо',
+            ]
 
     with open('../data.js', mode='w') as js:
         print('export const data = ' + json.dumps(data) + ';', file=js)

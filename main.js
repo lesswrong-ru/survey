@@ -24,30 +24,40 @@ var groupItems = function (src, context) {
   );
 
   var extractInt = str => parseInt(str.match(/\d+/g).slice(-1)[0]);
-  var slangToOrder = {
-    'З': 1, // Знаю, что это
-    'С': 2, // Слышал(а) эти слова, но не могу объяснить другому их значение
-    'М': 3, // Мне это незнакомо
-  };
 
   var sorters = {
     top: (a, b) => grouped[b] - grouped[a],
     numerical: (a, b) => parseInt(a) - parseInt(b),
     lexical: (a, b) => b < a,
     last_int: (a, b) => extractInt(a) - extractInt(b),
-    slang: (a, b) => slangToOrder[a[0]] - slangToOrder[b[0]],
   };
 
-  var sortedItems = Object.keys(grouped).sort(sorters[src.sort]);
-  if (src.sort == 'income') console.log(sortedItems);
-
-  var data = sortedItems.map(function(item, i) {
-    return {
-      count: grouped[item],
-      name: item,
-      id: i,
-    };
+  var sortedItems = Object.keys(grouped).sort(function (a, b) {
+    if (src.custom_sort) {
+      var a_i = src.custom_sort.indexOf(a);
+      var b_i = src.custom_sort.indexOf(b);
+      if (a_i >= 0 && b_i >= 0) {
+        return a_i - b_i;
+      }
+      else if (a_i < 0 && b_i >= 0) {
+        return 1;
+      }
+      else if (a_i >= 0 && b_i < 0) {
+        return -1;
+      }
+    }
+    return sorters[src.sort](a, b);
   });
+
+  var data = sortedItems.map(
+    (item, i) => {
+      return {
+        count: grouped[item],
+        name: item,
+        id: i,
+      };
+    }
+  );
 
   if (data.length > limit) {
     // collapse tail into "other"

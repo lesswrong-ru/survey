@@ -1,10 +1,28 @@
 #!/usr/bin/env python3
 import json
 import pandas as pd
-import numpy as np
 import math
 import re
 
+# some data was already normalized manually before we apply these fixes
+column_specific_fixes = {
+    'speciality': {
+        'it': 'IT',
+        'ит': 'IT',
+        'информационные технологии': 'IT',
+        'экономист': 'Экономика',
+        'математик': 'Математика',
+        'программист': 'Программирование',
+        'психолог': 'Психология',
+    },
+    'hobby': {
+        'видеоигры': 'Компьютерные игры',
+        'videogames': 'Компьютерные игры',
+        'комп. игры': 'Компьютерные игры',
+        'чгк': 'Что? Где? Когда?',
+        'что?где?когда?': 'Что? Где? Когда?',
+    },
+}
 def normalize_one(column, value):
     value = re.sub(':\)$', '', value)
     if column != 'income':
@@ -13,23 +31,50 @@ def normalize_one(column, value):
     if value == '':
         return None
     value = value[0].upper() + value[1:]
+
+    if column in column_specific_fixes:
+        value = column_specific_fixes[column].get(value.lower(), value)
+
     return value
+
+def split_meetup_reasons(value):
+    # this is hard because some answers included commas, but in some cases commas were a separator of multiple answers
+    presets = [
+        'Обсудить интересные темы',
+        'Узнать что-то новое',
+        'Пообщаться с единомышленниками',
+        'Социализироваться',
+        'Найти друзей',
+        'Помочь сообществу и людям',
+        'Попрактиковаться в чтении докладов и организационной деятельности',
+        'В моем городе нет встреч',
+        'Не получается по расписанию',
+        'Собираюсь, но откладываю',
+        'Не люблю людей и тусовки',
+        'Боюсь незнакомых людей',
+        'Люди на встречах занимаются не тем, чем мне хотелось бы',
+        'Считаю это неоправданной тратой времени',
+        'Мне не нравятся люди на встречах',
+    ]
+
+    values = []
+    for preset in presets:
+        if preset in value:
+            value = re.sub(re.escape(preset), 'PRESET', value)
+            values.append(preset)
+
+    values.append(
+        ', '.join(
+            part
+            for part in value.split(', ')
+            if part != 'PRESET'
+        )
+    )
+    return values
 
 def normalize(column, value):
     if not value:
         return [value]
-
-    column_specific_fixes = {
-        'speciality': {
-            'ит': 'IT',
-            'экономист': 'Экономика',
-            'математик': 'Математика',
-            'программист': 'Программирование',
-            'информационные технологии': 'IT',
-        },
-    }
-    if column in column_specific_fixes:
-        value = column_specific_fixes[column].get(value.lower(), value)
 
     if column == 'income':
         value = re.sub(',', '.', value)
@@ -55,8 +100,8 @@ def normalize(column, value):
         return ['{}-{}'.format(value + 1, value + 10)]
 
     if column in ('meetups_why', 'meetups_why_not'):
-        values = re.split(r', (?=[А-Я])', value)
-    elif column in ('hobby', 'job'):
+        values = split_meetup_reasons(value)
+    elif column in ('hobby', 'job', 'speciality'):
         value = re.sub('\(.*?\)', '', value) # get rid of (...), they are messing up with splitting-by-comma
         values = re.split(r',\s*', value)
     else:
@@ -75,7 +120,8 @@ def extract_other_values(data):
         if value2count[value] == 1
     ])
 
-    data['other_values'] = sorted(list(single_values))
+    if single_values:
+        data['other_values'] = sorted(list(single_values))
     data['values'] = [value for value in data['values'] if value not in single_values]
 
 
@@ -223,10 +269,20 @@ def main():
     data['sequences_book']['sort'] = 'numerical'
     data['english_cefr']['sort'] = 'lexical'
 
-    for field in ('age', 'education', 'english_cefr', 'iq', 'compass_social', 'compass_economics', 'happiness', 'online_lwru', 'online_slack', 'online_vk', 'online_lwcom', 'online_diaspora', 'online_reddit'):
+    for column in data.keys():
+        if column.startswith('slang_'):
+            data[column]['sort'] = 'slang'
+
+    for field in (
+            'age', 'education', 'english_cefr', 'iq',
+            'compass_social', 'compass_economics',
+            'happiness',
+            'online_lwru', 'online_slack', 'online_vk', 'online_lwcom', 'online_diaspora', 'online_reddit',
+            'meetups_why', 'meetups_why_not',
+        ):
         data[field]['limit'] = 1000
 
-    for field in ('meetups_why', 'meetups_why_not', 'hobby', 'job'):
+    for field in ('meetups_why', 'meetups_why_not', 'hobby', 'job', 'speciality'):
         data[field]['multiple'] = True
 
     for field in ('online_other', 'comments'):
@@ -247,14 +303,21 @@ def main():
     for column in data.keys():
         data[column]['values'] = sorted(data[column]['values'], key=lambda x: x or '')
 
-    for column in ('gender', 'religion', 'family', 'referer', 'meetups_city', 'meetups_why', 'meetups_why_not'):
+    for column in ('gender', 'religion', 'family', 'referer', 'meetups_city', 'meetups_why', 'meetups_why_not', 'compass_freeform'):
         extract_other_values(data[column])
+
+    data['education']['note'] = '"Неоконченное" включает как продолжающийся процесс, так и прерванный в прошлом.'
+    data['compass_economics']['note'] = 'См. https://www.politicalcompass.org/analysis2 для пояснений по этому и следующему вопросу.'
+    data['compass_social']['note'] = 'См. https://www.politicalcompass.org/analysis2 для пояснений по этому и предыдущему вопросу.'
+    data['iq']['note'] = 'Ваша честная оценка по итогам тестов, если вы проходили их в прошлом.'
+    data['english_cefr']['note'] = 'См. https://en.wikipedia.org/wiki/Common_European_Framework_of_Reference_for_Languages'
+    data['identity']['note'] = '(то есть как человек, разделяющий рациональное мировоззрение, не обязательно как человек, который сам по себе идеально рационален)'
 
     with open('../data.js', mode='w') as js:
         print('export const data = ' + json.dumps(data) + ';', file=js)
         print('export const columns = ' + json.dumps(columns) + ';', file=js)
         print('export const structure = ' + json.dumps(structure) + ';', file=js)
-        print('export const total = 305;', file=js) # FIXME - count the items in data
+        print('export const total = {};'.format(df.index.size - 1), file=js)
 
 if __name__ == '__main__':
     main()

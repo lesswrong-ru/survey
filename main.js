@@ -24,12 +24,18 @@ var groupItems = function (src, context) {
   );
 
   var extractInt = str => parseInt(str.match(/\d+/g).slice(-1)[0]);
+  var slangToOrder = {
+    'З': 1, // Знаю, что это
+    'С': 2, // Слышал(а) эти слова, но не могу объяснить другому их значение
+    'М': 3, // Мне это незнакомо
+  };
 
   var sorters = {
     top: (a, b) => grouped[b] - grouped[a],
     numerical: (a, b) => parseInt(a) - parseInt(b),
     lexical: (a, b) => b < a,
     last_int: (a, b) => extractInt(a) - extractInt(b),
+    slang: (a, b) => slangToOrder[a[0]] - slangToOrder[b[0]],
   };
 
   var sortedItems = Object.keys(grouped).sort(sorters[src.sort]);
@@ -159,16 +165,45 @@ const Block = React.createClass({
   render () {
     return (
       <section id={'question-' + this.props.name} className='block'>
-        <h3>{this.props.data.title}</h3>
+        {this.renderTitle()}
+        {
+          this.props.data.note
+          ? <small className='note'>{this.props.data.note}</small>
+          : null
+        }
         {
           this.props.data.multiple
-          ? <small className='multiple-note'>(Этот вопрос допускал несколько ответов, сумма может превышать 100%.)</small>
+          ? <small className='note'>(Этот вопрос допускал несколько ответов, сумма может превышать 100%.)</small>
           : null
         }
         <div className='d3'></div>
         {this.renderOther()}
         {this.renderText()}
       </section>
+    );
+  },
+
+  renderTitleSimple () {
+    return <h3>{this.props.data.title}</h3>;
+  },
+
+  renderTitle () {
+    if (!this.props.name.match(/^(psy|slang|online)_/)) {
+      return this.renderTitleSimple();
+    }
+
+    var match = this.props.data.title.match(/^(.*) \[(.*)\]$/);
+    if (!match) {
+      return this.renderTitleSimple();
+    }
+    var cat_title = match[1];
+    var item_title = match[2];
+    return (
+      <h3 className='dual'>
+        <span className='dual--cat'>{cat_title}:</span>
+        <br/>
+        <span className='dual--item'>{item_title}</span>
+      </h3>
     );
   },
 
@@ -307,6 +342,14 @@ const Menu = React.createClass({
   },
 });
 
+const Stats = () => {
+  return (
+    <div className='stats'>
+      Всего: {total} участника
+    </div>
+  );
+};
+
 const Main = React.createClass({
   render () {
     return (
@@ -322,6 +365,7 @@ const Main = React.createClass({
         <p>
         Некоторые подробности об том, как обрабатывались результаты, можно узнать <a href='#outro'>в конце этой страницы</a>.
         </p>
+        <Stats />
         </div>
         <Menu />
         {
@@ -351,14 +395,14 @@ const Main = React.createClass({
           </p>
           <div>***</div>
           <p>
-          Форму заполнили <strong>313</strong> раз. В итоговые данные вошли 305 анкет, остальные 8 я отсеял по следующим причинам:
+          Форму заполнили <strong>313</strong> раз. В итоговые данные вошли 304 анкет, остальные 9 я отсеял по следующим причинам:
           <ul>
           <li>анкету Пион, которая тестировала форму до её финальной версии, и заполнила потом ещё раз</li>
           <li>анкету с приватным комментарием "заполнил дважды"</li>
           <li>анкету с 6 заполненными полями, совпадающую со следующей (20 минут спустя) по всем полям</li>
           <li>анкету с заполненным только лишь политическим компасом (два числа и идентичность "трансгцма") - соответствия не нашёл</li>
           <li>две из трёх недозаполненные копии анкеты с профессией "соммелье"</li>
-          <li>и две анкеты, из Казани и Минска, которые я опознал, сравнивая соседние по времени и полям анкеты с большими последовательностями незаполенных полей</li>
+          <li>и три анкеты, из Казани, Минска и Твери, которые я опознал, сравнивая анкеты с большими последовательностями незаполенных полей и похожим временем, либо с совпадающими полями</li>
           </ul>
           </p>
           <div>***</div>
@@ -403,7 +447,7 @@ const Main = React.createClass({
           </p>
           <div>***</div>
           <p>
-          Страница результатов написана на <a href='https://d3js.org/'>D3.js</a> и <a href='https://facebook.github.io/react/'>React</a>. Без javascript'а эта страница не отобразится, извините.
+          Страница результатов написана на <a href='https://d3js.org/'>D3.js</a> и <a href='https://facebook.github.io/react/'>React</a>.
           </p>
           <p>
           Исходный код <a href='https://github.com/lesswrong-ru/survey'>доступен на Github'е</a>.

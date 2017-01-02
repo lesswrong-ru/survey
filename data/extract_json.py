@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import json
 import pandas as pd
+import numpy as np
 import math
 import re
 
@@ -77,7 +78,6 @@ def normalize(column, value):
         return [value]
 
     if column == 'income':
-        value = re.sub(',', '.', value)
         value = str(int(float(value)))
         if 0 < int(float(value)) < 300:
             value = str(1000 * int(float(value)))
@@ -96,8 +96,11 @@ def normalize(column, value):
             value = group_n(50)
 
     if column == 'iq':
-        value = int((int(value) - 1) / 10) * 10
+        value = int((value - 1) / 10) * 10
         return ['{}-{}'.format(value + 1, value + 10)]
+
+    if type(value) == int:
+        return [value] # nothing to normalize
 
     if column in ('meetups_why', 'meetups_why_not'):
         values = split_meetup_reasons(value)
@@ -113,6 +116,8 @@ def normalize(column, value):
 def extract_other_values(data):
     value2count = {}
     for value in data['values']:
+        if value == None:
+            continue
         value2count[value] = value2count.get(value, 0) + 1
 
     single_values = set([
@@ -127,9 +132,9 @@ def extract_other_values(data):
 
 def main():
     df = pd.read_csv('data.txt', sep='\t')
+    russian_columns = pd.read_csv('metadata.txt', sep='\t').ix[0]
 
     data = {}
-    russian_columns = df.ix[0]
     columns = [
         column
         for column in df.columns
@@ -145,6 +150,7 @@ def main():
                 'city',
                 'age',
                 'gender',
+                'source',
             ],
         },
         {
@@ -201,7 +207,6 @@ def main():
                 'sequences_language',
                 'sequences_russian',
                 'sequences_english',
-                'sequences_book',
                 'slang_bias',
                 'slang_bayes',
                 'slang_epistemology',
@@ -247,6 +252,7 @@ def main():
             'title': russian_columns[column],
             'values': [],
             'shortcuts': {},
+            'type': 'str',
             'sort': 'top',
             'limit': 5,
             'multiple': False,
@@ -257,16 +263,19 @@ def main():
     data['referer']['shortcuts']['Через книгу "Гарри Поттер и методы рационального мышления"'] = 'Через ГПиМРМ'
     data['meetups_why']['shortcuts']['Попрактиковаться в чтении докладов и организационной деятельности'] = 'Попрактиковаться в чтении докладов и орг.деятельности'
 
-    data['age']['sort'] = 'numerical'
-    data['compass_economics']['sort'] = 'numerical'
-    data['compass_social']['sort'] = 'numerical'
-    data['identity']['sort'] = 'numerical'
-    data['happiness']['sort'] = 'numerical'
-    data['iq']['sort'] = 'last_int'
-    data['income']['sort'] = 'last_int'
-    data['sequences_russian']['sort'] = 'numerical'
-    data['sequences_english']['sort'] = 'numerical'
-    data['sequences_book']['sort'] = 'numerical'
+    for column in ('age', 'compass_economics', 'compass_social', 'identity', 'happiness', 'iq', 'income', 'kids'):
+        data[column]['type'] = 'int'
+    for column in ('age', 'compass_economics', 'compass_social', 'identity', 'happiness', 'kids', 'sequences_english', 'sequences_russian'):
+        data[column]['sort'] = 'numerical'
+    for column in ('iq', 'income'):
+        data['iq']['sort'] = 'last_int'
+
+    for column in columns:
+        if column not in ('income', 'iq'): # income and iq are converted to intervals
+            data[column]['output_type'] = data[column]['type']
+        else:
+            data[column]['output_type'] = 'str'
+
     data['english_cefr']['sort'] = 'lexical'
 
     for field in (
@@ -291,13 +300,18 @@ def main():
     for i in range(1, df.index.size):
         for column in columns:
             value = df.ix[i][column]
-            if type(value) == float and math.isnan(value):
+            if type(value) in (float, np.float64) and math.isnan(value):
                 value = None
+            if type(value) == np.float64:
+                value = float(value)
+            if data[column]['type'] == 'int' and value:
+                value = int(value)
             data[column]['values'].extend(normalize(column, value))
 
     # important for anonimization of our data!
     for column in data.keys():
-        data[column]['values'] = sorted(data[column]['values'], key=lambda x: x or '')
+        default = 0 if data[column]['type'] == 'int' and column not in ('income', 'iq') else ''
+        data[column]['values'] = sorted(data[column]['values'], key=lambda x: x or default)
 
     for column in ('gender', 'religion', 'family', 'referer', 'meetups_city', 'meetups_why', 'meetups_why_not', 'compass_freeform'):
         extract_other_values(data[column])

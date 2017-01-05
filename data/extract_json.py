@@ -16,6 +16,17 @@ column_specific_fixes = {
         'программист': 'Программирование',
         'психолог': 'Психология',
     },
+    'country': {
+        'сша': 'США',
+        'germany': 'Германия',
+        'singapore': 'Сингапур',
+    },
+    'city': {
+        'росто-на-дону': 'Ростов-на-Дону',
+        'мінск': 'Минск',
+        'singapore': 'Сингапур',
+        '{vtkmybwrbq': 'Хмельницкий',
+    },
     'hobby': {
         'видеоигры': 'Компьютерные игры',
         'videogames': 'Компьютерные игры',
@@ -35,6 +46,9 @@ def normalize_one(column, value):
 
     if column in column_specific_fixes:
         value = column_specific_fixes[column].get(value.lower(), value)
+
+    if column == 'source' and 'gipsy' in value.lower():
+        value = 'Покерный форум GipsyTeam.ru'
 
     return value
 
@@ -79,21 +93,19 @@ def normalize(column, value):
 
     if column == 'income':
         value = str(int(float(value)))
-        if 0 < int(float(value)) < 300:
-            value = str(1000 * int(float(value)))
 
         def group_n(n):
-            group_id = int(int(value) / (1000 * n))
-            return '{}-{} тыс. р.'.format(n * group_id, (n-1) + n * group_id)
+            group_id = int(int(value) / (100 * n))
+            return '${}00 - ${}99'.format(n * group_id, n * group_id + n - 1)
 
-        if int(value) < 5000:
-            value = 'до 5 тыс. р.'
-        elif int(value) < 10000:
-            value = '5-9 тыс. р.'
-        elif int(value) < 150000:
-            value = group_n(10)
+        if int(value) < 100:
+            value = 'до $100'
+        elif int(value) < 500:
+            value = '$100 - $499'
+        elif int(value) < 5000:
+            value = group_n(5)
         else:
-            value = group_n(50)
+            value = '> $5000'
 
     if column == 'iq':
         value = int((value - 1) / 10) * 10
@@ -130,6 +142,110 @@ def extract_other_values(data):
     data['values'] = [value for value in data['values'] if value not in single_values]
 
 
+structure = [
+    {
+        'title': 'Общие данные',
+        'columns': [
+            'country',
+            'city',
+            'age',
+            'gender',
+            'source',
+        ],
+    },
+    {
+        'title': 'Образование',
+        'columns': [
+            'education',
+            'higher_education',
+            'speciality',
+        ],
+    },
+    {
+        'title': 'Политическая позиция',
+        'columns': [
+            'compass_economics',
+            'compass_social',
+            'compass_freeform',
+        ],
+    },
+    {
+        'title': 'Личные сведения',
+        'columns': [
+            'iq',
+            'english',
+            'english_cefr',
+            'religion',
+            'hand',
+            'family',
+            'kids',
+            'kids_preference',
+            'income',
+            'job',
+            'hobby',
+        ],
+    },
+    {
+        'title': 'Психика',
+        'columns': [
+            'happiness',
+            'psy_depression',
+            'psy_ocd',
+            'psy_autism',
+            'psy_bipolar',
+            'psy_anxiety',
+            'psy_borderline',
+            'psy_schizo',
+        ],
+    },
+    {
+        'title': 'Знакомство с LessWrong',
+        'columns': [
+            'referer',
+            'identity',
+            'sequences_knows',
+            'sequences_language',
+            'sequences_russian',
+            'sequences_english',
+            'slang_bias',
+            'slang_bayes',
+            'slang_epistemology',
+            'slang_two_systems',
+            'slang_solstice',
+            'slang_fallacymania',
+            'slang_ea',
+            'slang_miri',
+            'slang_ssc',
+            'slang_hpmor',
+            'slang_cfar',
+            'slang_kocherga',
+            'slang_transhumanism',
+            'slang_rtd',
+        ],
+    },
+    {
+        'title': 'Участие в сообществе',
+        'columns': [
+            'online_lwru',
+            'online_slack',
+            'online_vk',
+            'online_lwcom',
+            'online_diaspora',
+            'online_reddit',
+            'online_other',
+            'meetups',
+            'meetups_city',
+            'meetups_why',
+            'meetups_why_not',
+        ],
+    },
+    {
+        'title': 'Текстовый отзыв',
+        'columns': [
+            'comments',
+        ],
+    },
+]
 def main():
     df = pd.read_csv('data.txt', sep='\t')
     russian_columns = pd.read_csv('metadata.txt', sep='\t').ix[0]
@@ -142,110 +258,6 @@ def main():
     ]
 
     # listing columns manually for the sake of the correct order
-    structure = [
-        {
-            'title': 'Общие данные',
-            'columns': [
-                'country',
-                'city',
-                'age',
-                'gender',
-                'source',
-            ],
-        },
-        {
-            'title': 'Образование',
-            'columns': [
-                'education',
-                'higher_education',
-                'speciality',
-            ],
-        },
-        {
-            'title': 'Политическая позиция',
-            'columns': [
-                'compass_economics',
-                'compass_social',
-                'compass_freeform',
-            ],
-        },
-        {
-            'title': 'Личные сведения',
-            'columns': [
-                'iq',
-                'english',
-                'english_cefr',
-                'religion',
-                'hand',
-                'family',
-                'kids',
-                'kids_preference',
-                'income',
-                'job',
-                'hobby',
-            ],
-        },
-        {
-            'title': 'Психика',
-            'columns': [
-                'happiness',
-                'psy_depression',
-                'psy_ocd',
-                'psy_autism',
-                'psy_bipolar',
-                'psy_anxiety',
-                'psy_borderline',
-                'psy_schizo',
-            ],
-        },
-        {
-            'title': 'Знакомство с LessWrong',
-            'columns': [
-                'referer',
-                'identity',
-                'sequences_knows',
-                'sequences_language',
-                'sequences_russian',
-                'sequences_english',
-                'slang_bias',
-                'slang_bayes',
-                'slang_epistemology',
-                'slang_two_systems',
-                'slang_solstice',
-                'slang_fallacymania',
-                'slang_ea',
-                'slang_miri',
-                'slang_ssc',
-                'slang_hpmor',
-                'slang_cfar',
-                'slang_kocherga',
-                'slang_transhumanism',
-                'slang_rtd',
-            ],
-        },
-        {
-            'title': 'Участие в сообществе',
-            'columns': [
-                'online_lwru',
-                'online_slack',
-                'online_vk',
-                'online_lwcom',
-                'online_diaspora',
-                'online_reddit',
-                'online_other',
-                'meetups',
-                'meetups_city',
-                'meetups_why',
-                'meetups_why_not',
-            ],
-        },
-        {
-            'title': 'Текстовый отзыв',
-            'columns': [
-                'comments',
-            ],
-        },
-    ]
 
     for column in columns:
         data[column] = {
@@ -268,7 +280,7 @@ def main():
     for column in ('age', 'compass_economics', 'compass_social', 'identity', 'happiness', 'kids', 'sequences_english', 'sequences_russian'):
         data[column]['sort'] = 'numerical'
     for column in ('iq', 'income'):
-        data['iq']['sort'] = 'last_int'
+        data[column]['sort'] = 'last_int'
 
     for column in columns:
         if column not in ('income', 'iq'): # income and iq are converted to intervals
@@ -297,7 +309,7 @@ def main():
         data[field]['text_tail'] = True
 
 
-    for i in range(1, df.index.size):
+    for i in range(df.index.size):
         for column in columns:
             value = df.ix[i][column]
             if type(value) in (float, np.float64) and math.isnan(value):
@@ -344,7 +356,7 @@ def main():
         print('export const data = ' + json.dumps(data) + ';', file=js)
         print('export const columns = ' + json.dumps(columns) + ';', file=js)
         print('export const structure = ' + json.dumps(structure) + ';', file=js)
-        print('export const total = {};'.format(df.index.size - 1), file=js)
+        print('export const total = {};'.format(df.index.size), file=js)
 
 if __name__ == '__main__':
     main()

@@ -9,12 +9,13 @@ columns = [
     if column not in ('timestamp', 'privacy', 'contacts', 'comments2')
 ]
 
-print(len(columns))
+print('Total columns: {}'.format(len(columns)))
+print('Total rows: {}'.format(df.index.size))
 
 def is_empty(value):
     return (type(value) == float and math.isnan(value))
 
-for i in range(1, df.index.size):
+for i in range(0, df.index.size):
     for j in range(i+1, df.index.size):
         x = df.ix[i]
         y = df.ix[j]
@@ -47,8 +48,9 @@ for i in range(1, df.index.size):
         if equal < 15:
             continue
         print(
-            '[{} vs {}] {}\t{}\t{}\t{}\t{}'.format(
+            '[{} vs {}] [{} vs {}] {}\t{}\t{}\t{}\t{}'.format(
                 i, j,
+                x['timestamp'], y['timestamp'],
                 equal,
                 different,
                 empty_both,

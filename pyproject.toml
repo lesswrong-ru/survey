@@ -1,0 +1,9 @@
+[tool.poetry]
+name = "lw-survey"
+version = "0.1.0"
+description = ""
+authors = ["Vyacheslav Matyukhin <slava@kocherga-club.ru>"]
+
+[tool.poetry.dependencies]
+python = "^3.7"
+pandas = "^0.24.1"

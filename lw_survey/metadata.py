@@ -14,13 +14,22 @@
 # - defaults to 5
 # - can be overriden to any number
 
+# 2018 column changes:
+# - REFACTOR: compass_freeform => compass_identity
+# - NEW: feminism
+# - NEW: relationship_type
+# - REFACTOR: income => income_currency + income_amount
+# - NEW: slang_80k
+# - NEW: online_telegram
+# - NEW: previous_surveys
+
 from collections import namedtuple
 import json
 
 class SurveyField(namedtuple(
         'SurveyField',
         ['key', 'title', 'type', 'limit', 'sort', 'multiple', 'text_tail', 'show', 'shortcuts', 'private', 'extract_other'],
-        defaults=['str', 5, 'top', False, False, 'histogram', {}, False, False],
+        defaults=['str', 10, 'top', False, False, 'histogram', {}, False, False],
 )):
     __slots__ = ()
 
@@ -38,11 +47,13 @@ class SurveyForm:
     def field_by_title(self, title):
         return next(f for f in self.fields if f.title == title)
 
+    def public_fields(self):
+        return [field for field in self.fields if not field.private]
+
     def to_dict(self):
         return {
             field.key: field.to_dict()
-            for field in self.fields
-            if not field.private
+            for field in self.public_fields()
         }
 
 METADATA = SurveyForm([

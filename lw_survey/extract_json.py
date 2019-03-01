@@ -12,7 +12,6 @@ from .metadata import METADATA
 
 BASE_DIR = str(Path(__file__).parent.parent)
 
-
 # some data was already normalized manually before we apply these fixes
 column_specific_fixes = {
     'speciality': {
@@ -43,10 +42,12 @@ column_specific_fixes = {
         'что?где?когда?': 'Что? Где? Когда?',
     },
 }
+
+
 def normalize_one(column, value):
-    value = re.sub(':\)$', '', value)
+    value = re.sub(r':\)$', '', value)
     if column != 'income':
-        value = re.sub('\.$', '', value)
+        value = re.sub(r'\.$', '', value)
     value = value.strip()
     if value == '':
         return None
@@ -60,8 +61,10 @@ def normalize_one(column, value):
 
     return value
 
+
 def split_meetup_reasons(value):
-    # This is tricky because some answers included commas, but in some cases commas were a separator of multiple answers.
+    # This is tricky because some answers included commas, but in some cases
+    # commas were a separator of multiple answers.
     presets = [
         'Обсудить интересные темы',
         'Узнать что-то новое',
@@ -95,6 +98,7 @@ def split_meetup_reasons(value):
     )
     return values
 
+
 def normalize(column, value):
     if not value:
         return [value]
@@ -120,12 +124,12 @@ def normalize(column, value):
         return ['{}-{}'.format(value + 1, value + 10)]
 
     if type(value) == int:
-        return [value] # nothing to normalize
+        return [value]  # nothing to normalize
 
     if column in ('meetups_why', 'meetups_why_not'):
         values = split_meetup_reasons(value)
     elif column in ('hobby', 'job', 'speciality'):
-        value = re.sub('\(.*?\)', '', value) # get rid of (...), they are messing up with splitting-by-comma
+        value = re.sub(r'\(.*?\)', '', value) # get rid of (...), they are messing up with splitting-by-comma
         values = re.split(r',\s*', value)
     else:
         values = [value]
@@ -285,64 +289,47 @@ def validate_structure():
         if field.key not in all_structure_fields:
             raise Exception(f"{field.key} not in group structure")
 
-def run():
-    df = load_df()
 
-# 2018 column changes:
-# REFACTOR: compass_freeform => compass_identity
-# NEW: feminism
-# NEW: relationship_type
-# REFACTOR: income => income_currency + income_amount
-# NEW: slang_80k
-# NEW: online_telegram
-# NEW: previous_surveys
+class SurveyFieldData:
+    def __init__(self, field, values):
+        self.field = field
+        self.values = values
 
-    validate_structure()
+    def to_dict(self):
+        result = self.field.to_dict()
 
-    data = METADATA.to_dict()
-
-    columns = list(data.keys())
-
-    for value in data.values():
-        value['values'] = []
-
-    for column in columns:
-        if column in ('income', 'iq'): # income and iq are converted to intervals
-            data[column]['output_type'] = 'str'
+        column = self.field.key
+        if column in ('income', 'iq'):  # income and iq are converted to intervals
+            result['output_type'] = 'str'
         else:
-            data[column]['output_type'] = data[column]['type']
+            result['output_type'] = self.field.type
 
+        values = self.values
 
-    for i in range(df.index.size):
-        for column in columns:
-            value = df.loc[i][column]
-            if type(value) in (float, np.float64) and math.isnan(value):
-                value = None
-            if type(value) == np.float64:
-                value = float(value)
-            if data[column]['type'] == 'int' and value:
-                value = int(value)
-            data[column]['values'].extend(normalize(column, value))
+        # important for anonymization of our data!
+        default = 0 if self.field.type == 'int' and column not in ('income', 'iq') else ''
+        values = sorted(values, key=lambda x: x or default)
 
-    # important for anonymization of our data!
-    for column in columns:
-        default = 0 if data[column]['type'] == 'int' and column not in ('income', 'iq') else ''
-        data[column]['values'] = sorted(data[column]['values'], key=lambda x: x or default)
+        result['values'] = values
 
-    for column in columns:
-        if METADATA.field_by_key(column).extract_other:
-            extract_other_values(data[column])
+        if self.field.extract_other:
+            extract_other_values(result)
 
-    data['education']['note'] = '"Неоконченное" включает как продолжающийся процесс, так и прерванный в прошлом.'
-    data['compass_economics']['note'] = 'См. https://www.politicalcompass.org/analysis2 для пояснений по этому и следующему вопросу.'
-    data['compass_social']['note'] = 'См. https://www.politicalcompass.org/analysis2 для пояснений по этому и предыдущему вопросу.'
-    data['iq']['note'] = 'Ваша честная оценка по итогам тестов, если вы проходили их в прошлом.'
-    data['english_cefr']['note'] = 'См. https://en.wikipedia.org/wiki/Common_European_Framework_of_Reference_for_Languages'
-    data['identity']['note'] = '(то есть как человек, разделяющий рациональное мировоззрение, не обязательно как человек, который сам по себе идеально рационален)'
+        if column == 'education':
+            result['note'] = '"Неоконченное" включает как продолжающийся процесс, так и прерванный в прошлом.'
+        elif column == 'compass_economics':
+            result['note'] = 'См. https://www.politicalcompass.org/analysis2 для пояснений по этому и следующему вопросу.'
+        elif column == 'compass_social':
+            result['note'] = 'См. https://www.politicalcompass.org/analysis2 для пояснений по этому и предыдущему вопросу.'
+        elif column == 'iq':
+            result['note'] = 'Ваша честная оценка по итогам тестов, если вы проходили их в прошлом.'
+        elif column == 'english_cefr':
+            result['note'] = 'См. https://en.wikipedia.org/wiki/Common_European_Framework_of_Reference_for_Languages'
+        elif column == 'identity':
+            result['note'] = '(то есть как человек, разделяющий рациональное мировоззрение, не обязательно как человек, который сам по себе идеально рационален)'
 
-    for column in data.keys():
         if column.startswith('online_') and column != 'online_other':
-            data[column]['custom_sort'] = [
+            result['custom_sort'] = [
                 'Не знаю, что это',
                 'Знаю, что это, но не читаю',
                 'Редко читаю',
@@ -351,15 +338,14 @@ def run():
                 'Часто читаю и пишу',
             ]
         if column.startswith('slang_'):
-            data[column]['custom_sort'] = [
+            result['custom_sort'] = [
                 'Знаю, что это',
                 'Слышал(а) эти слова, но не могу объяснить другому их значение',
                 'Мне это незнакомо',
             ]
 
-    # compress values
-    for column in columns:
-        values = data[column]['values']
+        # compress values
+        values = result['values']
         grouped = defaultdict(int)
         for value in values:
             grouped[value] += 1
@@ -377,10 +363,36 @@ def run():
                 'value': key,
                 'count': grouped[key],
             })
-        data[column]['values'] = grouped_list
+        result['values'] = grouped_list
+
+        return result
+
+
+def run():
+    df = load_df()
+
+    validate_structure()
+
+    data = {}
+
+    columns = [field.key for field in METADATA.public_fields()]
+
+    for column in columns:
+        series = df[column]
+        values = []
+        field = METADATA.field_by_key(column)
+        for value in series:
+            if type(value) in (float, np.float64) and math.isnan(value):
+                value = None
+            if type(value) == np.float64:
+                value = float(value)
+            if field.type == 'int' and value:
+                value = int(value)
+            values.extend(normalize(column, value))
+
+        data[column] = SurveyFieldData(field, values).to_dict()
 
     with open(os.path.join(BASE_DIR, 'data.js'), mode='w') as js:
-        print('export const data = ' + json.dumps(data) + ';', file=js)
-        print('export const columns = ' + json.dumps(columns) + ';', file=js)
-        print('export const structure = ' + json.dumps(STRUCTURE) + ';', file=js)
-        print('export const total = {};'.format(df.index.size), file=js)
+        print('export const data = ' + json.dumps(data, ensure_ascii=False) + ';', file=js)
+        print('export const structure = ' + json.dumps(STRUCTURE, ensure_ascii=False) + ';', file=js)
+        print(f'export const total = {df.index.size};', file=js)

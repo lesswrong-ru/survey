@@ -129,29 +129,12 @@ def normalize(column, value):
     if column in ('meetups_why', 'meetups_why_not'):
         values = split_meetup_reasons(value)
     elif column in ('hobby', 'job', 'speciality'):
-        value = re.sub(r'\(.*?\)', '', value) # get rid of (...), they are messing up with splitting-by-comma
+        value = re.sub(r'\(.*?\)', '', value)  # get rid of (...), they are messing up with splitting-by-comma
         values = re.split(r',\s*', value)
     else:
         values = [value]
 
     return [normalize_one(column, v) for v in values]
-
-
-def extract_other_values(data):
-    value2count = {}
-    for value in data['values']:
-        if value == None:
-            continue
-        value2count[value] = value2count.get(value, 0) + 1
-
-    single_values = set([
-        value for value in value2count
-        if value2count[value] == 1
-    ])
-
-    if single_values:
-        data['other_values'] = sorted(list(single_values))
-    data['values'] = [value for value in data['values'] if value not in single_values]
 
 
 STRUCTURE = [
@@ -265,6 +248,7 @@ STRUCTURE = [
     },
 ]
 
+
 def load_df():
     df = pd.read_csv(os.path.join(BASE_DIR, 'data', 'data.txt'), sep=',')
 
@@ -273,6 +257,7 @@ def load_df():
 
     df = df.rename(mapper=mapper, axis='columns')
     return df
+
 
 def validate_structure():
     # all group columns are in METADATA
@@ -295,57 +280,19 @@ class SurveyFieldData:
         self.field = field
         self.values = values
 
-    def to_dict(self):
-        result = self.field.to_dict()
-
+    def get_compressed_values(self):
+        original_values = self.values
         column = self.field.key
-        if column in ('income', 'iq'):  # income and iq are converted to intervals
-            result['output_type'] = 'str'
-        else:
-            result['output_type'] = self.field.type
 
-        values = self.values
+        values = []
+        for value in original_values:
+            values.extend(normalize(column, value))
 
         # important for anonymization of our data!
         default = 0 if self.field.type == 'int' and column not in ('income', 'iq') else ''
         values = sorted(values, key=lambda x: x or default)
 
-        result['values'] = values
-
-        if self.field.extract_other:
-            extract_other_values(result)
-
-        if column == 'education':
-            result['note'] = '"Неоконченное" включает как продолжающийся процесс, так и прерванный в прошлом.'
-        elif column == 'compass_economics':
-            result['note'] = 'См. https://www.politicalcompass.org/analysis2 для пояснений по этому и следующему вопросу.'
-        elif column == 'compass_social':
-            result['note'] = 'См. https://www.politicalcompass.org/analysis2 для пояснений по этому и предыдущему вопросу.'
-        elif column == 'iq':
-            result['note'] = 'Ваша честная оценка по итогам тестов, если вы проходили их в прошлом.'
-        elif column == 'english_cefr':
-            result['note'] = 'См. https://en.wikipedia.org/wiki/Common_European_Framework_of_Reference_for_Languages'
-        elif column == 'identity':
-            result['note'] = '(то есть как человек, разделяющий рациональное мировоззрение, не обязательно как человек, который сам по себе идеально рационален)'
-
-        if column.startswith('online_') and column != 'online_other':
-            result['custom_sort'] = [
-                'Не знаю, что это',
-                'Знаю, что это, но не читаю',
-                'Редко читаю',
-                'Часто читаю',
-                'Часто читаю и иногда пишу',
-                'Часто читаю и пишу',
-            ]
-        if column.startswith('slang_'):
-            result['custom_sort'] = [
-                'Знаю, что это',
-                'Слышал(а) эти слова, но не могу объяснить другому их значение',
-                'Мне это незнакомо',
-            ]
-
         # compress values
-        values = result['values']
         grouped = defaultdict(int)
         for value in values:
             grouped[value] += 1
@@ -363,7 +310,36 @@ class SurveyFieldData:
                 'value': key,
                 'count': grouped[key],
             })
-        result['values'] = grouped_list
+
+        values = grouped_list
+        return values
+
+    def to_dict(self):
+        result = self.field.to_dict()
+
+        column = self.field.key
+        if column in ('income', 'iq'):  # income and iq are converted to intervals
+            result['output_type'] = 'str'
+        else:
+            result['output_type'] = self.field.type
+
+        if column.startswith('online_') and column != 'online_other':
+            result['custom_sort'] = [
+                'Не знаю, что это',
+                'Знаю, что это, но не читаю',
+                'Редко читаю',
+                'Часто читаю',
+                'Часто читаю и иногда пишу',
+                'Часто читаю и пишу',
+            ]
+        if column.startswith('slang_'):
+            result['custom_sort'] = [
+                'Знаю, что это',
+                'Слышал(а) эти слова, но не могу объяснить другому их значение',
+                'Мне это незнакомо',
+            ]
+
+        result['values'] = self.get_compressed_values()
 
         return result
 
@@ -388,7 +364,7 @@ def run():
                 value = float(value)
             if field.type == 'int' and value:
                 value = int(value)
-            values.extend(normalize(column, value))
+            values.append(value)
 
         data[column] = SurveyFieldData(field, values).to_dict()
 

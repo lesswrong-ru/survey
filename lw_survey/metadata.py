@@ -28,8 +28,8 @@ import json
 
 class SurveyField(namedtuple(
         'SurveyField',
-        ['key', 'title', 'type', 'limit', 'sort', 'multiple', 'text_tail', 'show', 'shortcuts', 'private', 'extract_other'],
-        defaults=['str', 10, 'top', False, False, 'histogram', {}, False, False],
+        ['key', 'title', 'type', 'limit', 'sort', 'multiple', 'text_tail', 'show', 'shortcuts', 'private', 'extract_other', 'note'],
+        defaults=['str', 10, 'top', False, False, 'histogram', {}, False, False, None],
 )):
     __slots__ = ()
 
@@ -91,6 +91,7 @@ METADATA = SurveyForm([
         key='education',
         title='Образование',
         limit=1000,
+        note='"Неоконченное" включает как продолжающийся процесс, так и прерванный в прошлом.',
     ),
     SurveyField(
         key='higher_education',
@@ -107,6 +108,7 @@ METADATA = SurveyForm([
         type='int',
         limit=1000,
         sort='numerical',
+        note='См. https://www.politicalcompass.org/analysis2 для пояснений по этому и следующему вопросу.',
     ),
     SurveyField(
         key='compass_social',
@@ -114,6 +116,7 @@ METADATA = SurveyForm([
         type='int',
         limit=1000,
         sort='numerical',
+        note='См. https://www.politicalcompass.org/analysis2 для пояснений по этому и следующему вопросу.',
     ),
     SurveyField(
         key='compass_identity',
@@ -127,6 +130,7 @@ METADATA = SurveyForm([
         type='int',
         limit=1000,
         sort='last_int',
+        note='Ваша честная оценка по итогам тестов, если вы проходили их в прошлом.',
     ),
     SurveyField(
         key='english',
@@ -137,6 +141,7 @@ METADATA = SurveyForm([
         title='Английский язык по шкале CEFR',
         limit=1000,
         sort='lexical',
+        note='См. https://en.wikipedia.org/wiki/Common_European_Framework_of_Reference_for_Languages',
     ),
     SurveyField(
         key='religion',
@@ -241,6 +246,7 @@ METADATA = SurveyForm([
         title='Насколько вы самоидентифицируетесь как рационалист?',
         type='int',
         sort='numerical',
+        note='(то есть как человек, разделяющий рациональное мировоззрение, не обязательно как человек, который сам по себе идеально рационален)',
     ),
     SurveyField(
         key='sequences_knows',

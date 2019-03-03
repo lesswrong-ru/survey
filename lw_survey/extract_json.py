@@ -368,7 +368,7 @@ def run():
 
         data[column] = SurveyFieldData(field, values).to_dict()
 
-    with open(os.path.join(BASE_DIR, 'data.js'), mode='w') as js:
+    with open(os.path.join(BASE_DIR, 'js', 'data.js'), mode='w') as js:
         print('export const data = ' + json.dumps(data, ensure_ascii=False) + ';', file=js)
         print('export const structure = ' + json.dumps(STRUCTURE, ensure_ascii=False) + ';', file=js)
         print(f'export const total = {df.index.size};', file=js)
